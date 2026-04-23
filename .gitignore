@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Weights / modelos IA (demasiado pesados para Git)
+backend/weights/*.pt
+backend/weights/*.onnx
+*.pt
+*.onnx
+
+# Env files (nunca subir credenciales)
+.env
+*.env
+!.env.example
+
+# Android
+frontend/.gradle/
+frontend/build/
+frontend/app/build/
+frontend/local.properties
+*.iml
+.idea/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+*.swp
