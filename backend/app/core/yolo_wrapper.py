@@ -1,12 +1,12 @@
-from ultralytics import YOLO
-
 class YOLO26Wrapper:
     def __init__(self, model_path: str, device: str = "cpu"):
         self.model_path = model_path
         self.device = device
-        self.model: YOLO = None
+        self.model = None
 
-    def load_model(self):
+    def load_model(self) -> None:
+        from ultralytics import YOLO  # lazy import — not needed at module level
+
         self.model = YOLO(self.model_path)
         self.warmup()
 
