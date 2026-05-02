@@ -84,10 +84,25 @@ PreviewView (CameraX)  →  MainActivity  ─observe─→  ScanState
 - [x] **Pantalla de historial** (`HistoryActivity`) con RecyclerView + pull-to-refresh
 - [x] **Cache offline con Room** — los escaneos quedan disponibles aunque caiga la red
 - [x] Refresh remoto del historial desde `GET /v1/history`
+- [x] **Tests JVM** — Repository + ScanViewModel + HistoryViewModel
+      (MockK + kotlinx-coroutines-test + Turbine + arch-core-testing)
+
+## Correr tests
+
+```bash
+# Tests JVM (rápidos, sin emulador)
+./gradlew test
+
+# Solo el módulo app
+./gradlew :app:testDebugUnitTest
+
+# Tests instrumentados (necesitan emulador / device)
+./gradlew connectedAndroidTest
+```
 
 ## Siguiente (post-MVP)
 
 - [ ] Integración real con autenticación JWT
 - [ ] Detalle de un escaneo (tap en el item del historial)
 - [ ] Dark mode tuneado
-- [ ] Tests unitarios del ViewModel y del Repository
+- [ ] Tests instrumentados (Espresso) de los flujos UI completos

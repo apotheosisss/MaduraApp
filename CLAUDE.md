@@ -161,6 +161,8 @@ git push origin feature/nombre-feature
 - Layout principal con semáforo de madurez (verde/amarillo/rojo)
 - **Cache offline con Room** — `ScanCacheEntity` + `ScanDao` + `MaduraDatabase` + `LocalScanDataSource`
 - Repository integra remoto + cache local (single source of truth pattern)
+- **Tests JVM** — `FruitRepositoryTest`, `ScanViewModelTest`, `HistoryViewModelTest`
+  (MockK + kotlinx-coroutines-test + Turbine + arch-core-testing)
 
 ### ✅ Pipeline de entrenamiento (scripts/) — listo para ejecutar
 - `scripts/data.yaml` — 12 clases en orden contractual con backend
