@@ -16,6 +16,14 @@ backend/weights/*.onnx
 *.pt
 *.onnx
 
+# Datasets de entrenamiento (descargados, no versionar)
+datasets/
+runs/
+.venv-train/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
 # Env files (nunca subir credenciales)
 .env
 *.env

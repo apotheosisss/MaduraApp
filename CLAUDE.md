@@ -6,8 +6,8 @@
 MaduraApp es un sistema de análisis de madurez agrícola mediante visión computacional. Una app Android nativa captura imágenes de frutas climatéricas y las envía a una API REST (FastAPI) que ejecuta inferencia con YOLO26n, devolviendo un diagnóstico de madurez en tiempo real.
 
 **Repositorio:** https://github.com/apotheosisss/MaduraApp  
-**Estado actual:** Sprint 1 backend completo (servicios, routers, tests, Alembic). Sprint 2 Android scaffolding listo.  
-**Fase actual:** Sprint 2 — App Android (CameraX + Retrofit + MVVM).
+**Estado actual:** Sprint 1 backend completo. Sprint 2 Android completo (incluye historial + Room offline). Pipeline de entrenamiento listo.  
+**Fase actual:** Recolección de dataset + entrenamiento del modelo.
 
 ---
 
@@ -73,8 +73,15 @@ MaduraApp/
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/                        ← Android Kotlin (pendiente)
-├── scripts/
-│   └── train_model.py               ← CRISP-DM training pipeline (PENDIENTE)
+├── scripts/                         ← Pipeline CRISP-DM (training)
+│   ├── train_model.py               ← Fine-tuning YOLO26n
+│   ├── download_dataset.py          ← Pull Roboflow
+│   ├── evaluate_model.py            ← mAP + KPI check
+│   ├── export_model.py              ← deploy a backend/weights/
+│   ├── config.yaml + data.yaml
+│   └── README.md
+├── notebooks/
+│   └── train_yolo26n_colab.ipynb    ← versión Colab (GPU gratis)
 ├── .github/workflows/
 │   └── backend_ci.yml               ← CI: install + pytest
 ├── docker-compose.yml
@@ -155,10 +162,20 @@ git push origin feature/nombre-feature
 - **Cache offline con Room** — `ScanCacheEntity` + `ScanDao` + `MaduraDatabase` + `LocalScanDataSource`
 - Repository integra remoto + cache local (single source of truth pattern)
 
-### 🔲 Pendiente — feature/yolo26n-training
-- Dataset colección y etiquetado
-- Script CRISP-DM entrenamiento
-- Fine-tuning YOLO26n en 4 clases
+### ✅ Pipeline de entrenamiento (scripts/) — listo para ejecutar
+- `scripts/data.yaml` — 12 clases en orden contractual con backend
+- `scripts/config.yaml` — hiperparámetros (80 épocas, AdamW, augmentation agresivo)
+- `scripts/download_dataset.py` — pull desde Roboflow vía .env
+- `scripts/train_model.py` — pipeline CRISP-DM con audit + snapshot de hparams
+- `scripts/evaluate_model.py` — mAP@50/95, P/R por clase, KPI check (≥0.75)
+- `scripts/export_model.py` — copia best.pt → `backend/weights/` con backup
+- `notebooks/train_yolo26n_colab.ipynb` — versión Colab/Kaggle (GPU gratis)
+- `scripts/README.md` — guía completa de las 6 fases CRISP-DM
+
+### 🔲 Pendiente (manual)
+- Recolectar y etiquetar dataset en Roboflow (≥200 imágenes/clase)
+- Correr el pipeline: `download_dataset.py → train_model.py → evaluate_model.py → export_model.py`
+- Validar mAP@50 ≥ 0.75; iterar hiperparámetros si no se cumple
 
 ---
 

@@ -1,0 +1,50 @@
+# Hiperparámetros del entrenamiento — MaduraApp
+# Cargado por scripts/train_model.py (vía argparse o por defecto).
+#
+# Justificación de valores: ver docs/claude/03_decisiones.md y
+# scripts/README.md (sección Modelado).
+
+# ─────────────────────────────────────────────────────────────────── Modelo
+model:
+  # Variante Nano obligatoria (free-tier cloud, CPU-only, <512MB RAM)
+  base: yolo26n.pt
+  imgsz: 640                # tamaño de entrada (mismo que preprocess del backend)
+  device: 0                 # 0 = primera GPU; 'cpu' fuerza CPU; -1 = autodetect
+
+# ──────────────────────────────────────────────────────────────── Training
+training:
+  epochs: 80                # CRISP-DM: arrancar con 80, subir a 120 si mAP plateauiza
+  batch: 16                 # Ajustar según VRAM disponible (Colab T4: 16; Kaggle P100: 32)
+  patience: 15              # early stopping si val/mAP@50 no mejora 15 épocas
+  optimizer: AdamW          # mejor convergencia que SGD para datasets pequeños
+  lr0: 0.001                # lr inicial — bajar a 0.0005 si NaN loss
+  lrf: 0.01                 # lr final = lr0 * lrf
+  momentum: 0.937
+  weight_decay: 0.0005
+  warmup_epochs: 3.0
+  cos_lr: true              # cosine scheduler — suele dar mejor mAP final
+  amp: true                 # mixed precision (FP16) — 2x más rápido en GPUs Tensor
+
+# ──────────────────────────────────────────────────────── Data Augmentation
+# Variabilidad de iluminación y ángulo en supermercados — augmentation agresivo.
+augmentation:
+  hsv_h: 0.015              # variación tono ±1.5%
+  hsv_s: 0.7                # saturación
+  hsv_v: 0.4                # brillo (clave para supermercados con luz fría)
+  degrees: 15.0             # rotación ±15° (frutas suelen estar en cajas inclinadas)
+  translate: 0.1
+  scale: 0.5                # zoom 0.5x – 1.5x (capturas de cerca y lejos)
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5               # solo horizontal (vertical no aplica para frutas)
+  mosaic: 1.0               # composición 4 imágenes — clave si el dataset es chico
+  mixup: 0.1
+  copy_paste: 0.0
+
+# ──────────────────────────────────────────────────────────────── Reporting
+reporting:
+  project: runs              # carpeta donde Ultralytics guarda runs
+  name: maduraapp_v1         # nombre del experimento (se incrementa: v1, v2, ...)
+  save_period: 10            # checkpoint cada N épocas
+  plots: true                # generar curvas de entrenamiento + matriz de confusión

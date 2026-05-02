@@ -1,0 +1,35 @@
+# Configuración del dataset YOLO — MaduraApp
+# Formato estándar Ultralytics: rutas relativas al directorio donde corre el train.
+
+# Estructura esperada del dataset (después de download_dataset.py):
+#   datasets/maduraapp/
+#     ├── train/
+#     │   ├── images/  (.jpg / .png)
+#     │   └── labels/  (.txt YOLO format)
+#     ├── valid/
+#     │   ├── images/
+#     │   └── labels/
+#     └── test/
+#         ├── images/
+#         └── labels/
+
+path: ../datasets/maduraapp     # raíz del dataset (relativa a scripts/)
+train: train/images
+val: valid/images
+test: test/images
+
+# 12 clases — MISMO ORDEN que CLASS_MAP en backend/app/services/inference_service.py
+# Cualquier cambio aquí debe replicarse en el backend.
+names:
+  0: aguacate_hass_INMADURO
+  1: aguacate_hass_OPTIMO
+  2: aguacate_hass_SOBRE_MADURO
+  3: platano_INMADURO
+  4: platano_OPTIMO
+  5: platano_SOBRE_MADURO
+  6: tomate_usda_INMADURO
+  7: tomate_usda_OPTIMO
+  8: tomate_usda_SOBRE_MADURO
+  9: mango_INMADURO
+  10: mango_OPTIMO
+  11: mango_SOBRE_MADURO
