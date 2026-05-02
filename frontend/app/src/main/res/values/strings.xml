@@ -4,6 +4,8 @@
 
     <!-- UI principal -->
     <string name="title_main">Análisis de madurez</string>
+    <string name="title_history">Historial</string>
+    <string name="lbl_history_empty">Aún no hay escaneos registrados.\n\nEscanea una fruta para comenzar tu historial.</string>
     <string name="btn_scan">Escanear fruta</string>
     <string name="btn_retry">Volver a escanear</string>
     <string name="lbl_loading">Analizando…</string>

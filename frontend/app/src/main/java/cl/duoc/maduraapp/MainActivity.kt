@@ -1,11 +1,14 @@
 package cl.duoc.maduraapp
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +25,7 @@ import cl.duoc.maduraapp.data.dto.ScanResultDto
 import cl.duoc.maduraapp.databinding.ActivityMainBinding
 import cl.duoc.maduraapp.ui.ScanState
 import cl.duoc.maduraapp.ui.ScanViewModel
+import cl.duoc.maduraapp.ui.history.HistoryActivity
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -54,6 +58,8 @@ class MainActivity : AppCompatActivity() {
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
+        setSupportActionBar(binding.toolbar)
+
         binding.btnScan.setOnClickListener { takePictureAndSubmit() }
         binding.btnRetry.setOnClickListener {
             viewModel.reset()
@@ -74,6 +80,19 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.action_history -> {
+            startActivity(Intent(this, HistoryActivity::class.java))
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
     }
 
     // ---------------------------------------------------------------- Camera

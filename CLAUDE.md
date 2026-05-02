@@ -144,15 +144,16 @@ git push origin feature/nombre-feature
 - **Tests reales** — 9/9 passing (predict + history) con SQLite in-memory
 - `.github/workflows/backend_ci.yml` (CI con tests reales)
 
-### 🔲 Sprint 2 — Android (en progreso)
-- ✅ Estructura del proyecto Gradle Kotlin DSL (`frontend/`)
-- ✅ `AndroidManifest.xml` + permisos CAMERA/INTERNET + tema Material 3
-- ✅ Data layer: DTOs (Kotlinx Serialization) + `MaduraApiService` (Retrofit) + `ApiClient` + `FruitRepository`
-- ✅ MVVM: `ScanState` (sealed) + `ScanViewModel` (LiveData)
-- ✅ `MainActivity` con CameraX preview + captura + JPEG compress
-- ✅ Layout principal con semáforo de madurez (verde/amarillo/rojo)
-- 🔲 Pantalla de historial (consumir `GET /v1/history`)
-- 🔲 Persistencia local con Room (cache offline)
+### ✅ Sprint 2 — Android (completo)
+- Estructura del proyecto Gradle Kotlin DSL (`frontend/`)
+- `AndroidManifest.xml` + permisos CAMERA/INTERNET + tema Material 3
+- Data layer: DTOs (Kotlinx Serialization) + `MaduraApiService` (Retrofit) + `ApiClient` + `FruitRepository`
+- MVVM: `ScanState`/`ScanViewModel` + `HistoryState`/`HistoryViewModel` (LiveData)
+- `MainActivity` con CameraX preview + captura + JPEG compress + toolbar
+- `HistoryActivity` con RecyclerView + DiffUtil + pull-to-refresh
+- Layout principal con semáforo de madurez (verde/amarillo/rojo)
+- **Cache offline con Room** — `ScanCacheEntity` + `ScanDao` + `MaduraDatabase` + `LocalScanDataSource`
+- Repository integra remoto + cache local (single source of truth pattern)
 
 ### 🔲 Pendiente — feature/yolo26n-training
 - Dataset colección y etiquetado

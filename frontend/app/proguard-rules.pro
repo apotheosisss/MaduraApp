@@ -11,3 +11,8 @@
     @kotlinx.serialization.Serializable <methods>;
 }
 -keep,includedescriptorclasses class cl.duoc.maduraapp.data.dto.** { *; }
+
+# Room — preservar entidades y DAOs
+-keep class cl.duoc.maduraapp.data.local.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**

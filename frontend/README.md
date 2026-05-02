@@ -77,8 +77,17 @@ PreviewView (CameraX)  →  MainActivity  ─observe─→  ScanState
 - `INTERNET` — comunicación con backend
 - `ACCESS_NETWORK_STATE` — verificar conectividad
 
-## Siguiente
+## Implementado
 
-- [ ] Pantalla de historial (consumir `GET /v1/history`)
-- [ ] Persistencia local con Room (offline cache)
+- [x] Captura con CameraX + envío al backend
+- [x] Semáforo de madurez (verde / amarillo / rojo) + recomendación
+- [x] **Pantalla de historial** (`HistoryActivity`) con RecyclerView + pull-to-refresh
+- [x] **Cache offline con Room** — los escaneos quedan disponibles aunque caiga la red
+- [x] Refresh remoto del historial desde `GET /v1/history`
+
+## Siguiente (post-MVP)
+
 - [ ] Integración real con autenticación JWT
+- [ ] Detalle de un escaneo (tap en el item del historial)
+- [ ] Dark mode tuneado
+- [ ] Tests unitarios del ViewModel y del Repository
