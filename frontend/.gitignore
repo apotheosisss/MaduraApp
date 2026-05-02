@@ -1,0 +1,29 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Keystore — nunca commitear
+*.jks
+*.keystore
+
+# Generated files
+bin/
+gen/
+out/
+
+# Logs
+*.log
+
+# Gradle wrapper jar — se descarga con `gradle wrapper`
+gradle/wrapper/gradle-wrapper.jar

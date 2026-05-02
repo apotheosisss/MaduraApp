@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_all_tables()
+    # En desarrollo creamos tablas automáticamente; en producción las gestiona
+    # Alembic vía `alembic upgrade head` antes de levantar el servidor.
+    if settings.ENVIRONMENT == "development":
+        await create_all_tables()
 
     try:
         model = YOLO26Wrapper(settings.YOLO_MODEL_PATH)
