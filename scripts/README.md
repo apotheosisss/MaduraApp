@@ -72,11 +72,53 @@ ROBOFLOW_VERSION=1
 
 ### Fase 2-3 — Datos
 
+Tienes dos rutas según de dónde venga el dataset:
+
+#### Opción A — Dataset ya curado en Roboflow
+
 ```bash
 python scripts/download_dataset.py
 # Descarga el dataset desde Roboflow → datasets/maduraapp/
 # Verifica que existan train/, valid/, test/ con images/ + labels/
 ```
+
+#### Opción B — Datasets crudos de Kaggle (recomendado para MVP)
+
+```bash
+# 1. Descarga los datasets recomendados (ver prepare_config.example.yaml)
+mkdir -p datasets/raw && cd datasets/raw
+kaggle datasets download -d shahriar26s/banana-ripeness-classification-dataset --unzip
+kaggle datasets download -d amldvvs/avocado-ripeness-classification-dataset   --unzip
+kaggle datasets download -d nexuswho/laboro-tomato                            --unzip
+kaggle datasets download -d srabon00/mango-ripening-stage-classification      --unzip
+cd ../..
+
+# 2. Copia la plantilla de config y ajusta paths/clases al árbol real de
+#    los descomprimidos (los nombres de carpetas varían entre datasets)
+cp scripts/prepare_config.example.yaml scripts/prepare_config.yaml
+# (editar scripts/prepare_config.yaml con un editor)
+
+# 3. Inspección — cuenta imágenes por clase, no copia nada
+python scripts/prepare_dataset.py --dry-run
+
+# 4. Ejecutar — normaliza, genera bboxes y split → datasets/maduraapp/
+python scripts/prepare_dataset.py
+```
+
+`prepare_dataset.py` se encarga de:
+
+- Contar imágenes válidas por clase y emitir warning si alguna queda
+  bajo `min_per_class` (default 200).
+- Generar `.txt` YOLO con bbox **full-frame** (cubre toda la imagen) cuando
+  el dataset es de clasificación, o **passthrough** (preserva bboxes
+  existentes pero reescribe class_id) cuando ya viene en formato detección.
+- Hacer **split estratificado** 70/15/15 (cada clase aparece en val y test).
+- Renombrar archivos a `{class_id:02d}_{seq:06d}.jpg` para evitar colisiones
+  entre datasets distintos.
+
+⚠️ El `class_id` es **contractual** con el backend (ver tabla arriba).
+Cualquier asignación incorrecta en `prepare_config.yaml` provoca que el
+modelo entrenado prediga categorías equivocadas aunque acierte la fruta.
 
 ### Fase 4 — Modelado
 
@@ -153,10 +195,17 @@ Si no tienes GPU local, usa el notebook
 
 ```
 MaduraApp/
-├── datasets/maduraapp/         ← descargado por download_dataset.py (gitignore)
-│   ├── train/{images,labels}/
-│   ├── valid/{images,labels}/
-│   └── test/{images,labels}/
+├── datasets/
+│   ├── raw/                    ← descargas crudas de Kaggle (gitignore)
+│   │   ├── banana/
+│   │   ├── avocado/
+│   │   ├── laboro-tomato/
+│   │   └── mango/
+│   └── maduraapp/              ← generado por prepare_dataset.py o
+│       │                          download_dataset.py (gitignore)
+│       ├── train/{images,labels}/
+│       ├── valid/{images,labels}/
+│       └── test/{images,labels}/
 ├── runs/                        ← experimentos (gitignore)
 │   ├── maduraapp_v1/
 │   │   ├── weights/{best.pt,last.pt}
