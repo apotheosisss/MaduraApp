@@ -1,17 +1,20 @@
-"""Normaliza datasets crudos (Kaggle / Roboflow / capturas propias) al formato
-YOLO contractual de MaduraApp.
+"""Normaliza datasets crudos (Kaggle / capturas propias) al formato YOLO
+contractual de MaduraApp.
 
 Pipeline:
-  1. Lee `prepare_config.yaml` con el mapeo `directorio_crudo → class_id`.
+  1. Lee `prepare_config.yaml` con el mapeo directorio_crudo → class_id.
   2. Inspecciona cada source: cuenta imágenes válidas, ignora basura.
   3. Genera bboxes:
        - `full_frame`: una caja que cubre toda la imagen (clasificación →
          detección barata, útil cuando la fruta llena el frame).
-       - `passthrough`: copia los `.txt` ya existentes (datasets que YA son
-         de detección, como Laboro Tomato).
-  4. Split estratificado por clase (cada clase aparece en train/valid/test).
-  5. Copia a `datasets/maduraapp/{train,valid,test}/{images,labels}/`.
-  6. Imprime reporte: imágenes por clase + por split + warnings.
+       - `passthrough`: copia los `.txt` ya existentes y reescribe los
+         class_ids usando `class_remap` (útil para datasets de detección
+         con taxonomía distinta, como Laboro Tomato).
+  4. `glob_pattern`: filtra qué archivos tomar de una carpeta que mezcla
+     múltiples frutas (ej: `mango_*` en `Train/Unripe/`).
+  5. Split estratificado por clase (cada clase aparece en train/valid/test).
+  6. Copia a `datasets/maduraapp/{train,valid,test}/{images,labels}/`.
+  7. Imprime reporte: imágenes por clase + por split + warnings.
 
 Uso:
     python scripts/prepare_dataset.py
@@ -26,7 +29,7 @@ import random
 import shutil
 import sys
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
@@ -66,23 +69,40 @@ logger = logging.getLogger("prepare_dataset")
 
 @dataclass
 class Source:
-    """Un origen de imágenes mapeado a una clase canónica."""
+    """Un origen de imágenes con su mapeo a clase(s) canónica(s)."""
 
     path: Path
-    class_id: int
-    bbox_strategy: str  # "full_frame" o "passthrough"
+    class_id: int              # -1 si se usa class_remap
+    bbox_strategy: str         # "full_frame" o "passthrough"
+    class_remap: dict[int, int] | None = None  # para passthrough multi-clase
+    glob_pattern: str | None = None            # filtro de archivos en carpeta mixta
 
     def __post_init__(self) -> None:
-        if self.class_id not in CANONICAL_CLASSES:
-            raise ValueError(
-                f"class_id={self.class_id} inválido. Debe estar en 0..11. "
-                f"Ver scripts/README.md para la tabla canónica."
-            )
         if self.bbox_strategy not in ("full_frame", "passthrough"):
             raise ValueError(
                 f"bbox_strategy='{self.bbox_strategy}' inválido. "
                 f"Usa 'full_frame' o 'passthrough'."
             )
+        if self.class_remap is not None:
+            for orig, canon in self.class_remap.items():
+                if canon not in CANONICAL_CLASSES:
+                    raise ValueError(
+                        f"class_remap: target {canon} inválido. "
+                        f"Debe estar en 0..11."
+                    )
+        else:
+            if self.class_id not in CANONICAL_CLASSES:
+                raise ValueError(
+                    f"class_id={self.class_id} inválido. Debe estar en 0..11 "
+                    f"(o usar class_remap). Ver scripts/README.md."
+                )
+
+    @property
+    def naming_class_id(self) -> int:
+        """Class id representativo para nombrar archivos de salida."""
+        if self.class_remap is not None:
+            return min(self.class_remap.values())
+        return self.class_id
 
 
 @dataclass
@@ -102,8 +122,11 @@ class Config:
         sources = [
             Source(
                 path=(path.parent / src["path"]).resolve(),
-                class_id=int(src["class_id"]),
+                class_id=int(src.get("class_id", -1)),
                 bbox_strategy=src.get("bbox_strategy", default_bbox),
+                class_remap={int(k): int(v) for k, v in src["class_remap"].items()}
+                             if src.get("class_remap") else None,
+                glob_pattern=src.get("glob_pattern"),
             )
             for src in raw["sources"]
         ]
@@ -115,7 +138,7 @@ class Config:
             float(split.get("test", 0.15)),
         )
         if abs(sum(split_tuple) - 1.0) > 1e-6:
-            raise ValueError(f"split debe sumar 1.0, suma {sum(split_tuple)}")
+            raise ValueError(f"split debe sumar 1.0, suma {sum(split_tuple):.4f}")
 
         return cls(
             output_dir=(path.parent / raw["output_dir"]).resolve(),
@@ -129,73 +152,88 @@ class Config:
 # ───────────────────────────────────────────────────────── Lógica principal
 
 def collect_images(source: Source) -> list[Path]:
-    """Lista todas las imágenes válidas dentro de un Source (no recursivo
-    si se quiere granularidad, recursivo si la carpeta tiene subniveles).
-    """
+    """Lista todas las imágenes válidas dentro de un Source."""
     if not source.path.exists():
         logger.warning("Source no existe: %s", source.path)
         return []
 
-    images = [
-        p for p in source.path.rglob("*") if p.suffix.lower() in IMAGE_SUFFIXES
-    ]
-    return sorted(images)
+    if source.glob_pattern:
+        # Búsqueda plana con patrón — útil para carpetas con múltiples frutas
+        images = sorted(
+            p for p in source.path.glob(source.glob_pattern)
+            if p.suffix.lower() in IMAGE_SUFFIXES and p.is_file()
+        )
+    else:
+        images = sorted(
+            p for p in source.path.rglob("*")
+            if p.suffix.lower() in IMAGE_SUFFIXES
+        )
+    return images
 
 
 def stratified_split(
-    images: list[Path], ratios: tuple[float, float, float], rng: random.Random
-) -> tuple[list[Path], list[Path], list[Path]]:
-    """Split por porcentaje preservando el orden aleatorio.
-
-    No es estratificado por clase aquí — el caller llama esto por cada clase
-    para garantizar que cada clase aparece en los 3 splits.
-    """
+    images: list,
+    ratios: tuple[float, float, float],
+    rng: random.Random,
+) -> tuple[list, list, list]:
+    """Reparte aleatoriamente manteniendo las proporciones."""
     shuffled = list(images)
     rng.shuffle(shuffled)
 
     n = len(shuffled)
     n_train = int(n * ratios[0])
     n_valid = int(n * ratios[1])
-    # El resto a test, así no perdemos imágenes por redondeo
     train = shuffled[:n_train]
     valid = shuffled[n_train : n_train + n_valid]
     test = shuffled[n_train + n_valid :]
     return train, valid, test
 
 
-def write_label(label_path: Path, class_id: int, strategy: str, src_image: Path) -> None:
-    """Crea el `.txt` de YOLO para una imagen.
-
-    full_frame  → 1 línea, bbox cubre toda la imagen
-    passthrough → copia el `.txt` que ya existe junto al source (mismo stem)
-    """
+def write_label(
+    label_path: Path,
+    class_id: int,
+    strategy: str,
+    src_image: Path,
+    class_remap: dict[int, int] | None = None,
+) -> None:
+    """Crea el `.txt` YOLO para una imagen."""
     label_path.parent.mkdir(parents=True, exist_ok=True)
 
     if strategy == "full_frame":
-        # Formato YOLO: <class_id> <cx> <cy> <w> <h> normalizados a [0,1]
-        label_path.write_text(f"{class_id} 0.5 0.5 1.0 1.0\n", encoding="utf-8")
+        label_path.write_text(
+            f"{class_id} 0.5 0.5 1.0 1.0\n", encoding="utf-8"
+        )
         return
 
     if strategy == "passthrough":
         external = src_image.with_suffix(".txt")
+        # Laboro guarda labels en ../labels/ en vez de junto a la imagen
+        if not external.exists():
+            labels_dir = src_image.parent.parent / "labels"
+            external = labels_dir / src_image.with_suffix(".txt").name
         if not external.exists():
             raise FileNotFoundError(
-                f"bbox_strategy=passthrough pero no existe {external}. "
-                f"Confirma que el dataset crudo trae sus propios .txt."
+                f"passthrough: no existe label para {src_image}.\n"
+                f"  Buscado en: {src_image.with_suffix('.txt')} y {external}"
             )
-        # Reescribir class_ids para que coincidan con CANONICAL_CLASSES.
-        # En passthrough asumimos que el `.txt` original ya viene con
-        # bboxes válidos, pero los `class_id` originales rara vez coinciden
-        # con nuestro orden — forzamos el class_id del Source.
-        lines = []
+
+        lines: list[str] = []
         for line in external.read_text(encoding="utf-8").splitlines():
             parts = line.strip().split()
             if len(parts) < 5:
                 continue
-            # Reemplazamos solo el class_id, dejamos las coordenadas tal cual
-            parts[0] = str(class_id)
+            orig_class = int(parts[0])
+            if class_remap is not None:
+                if orig_class not in class_remap:
+                    continue  # bbox de clase no relevante — omitir
+                parts[0] = str(class_remap[orig_class])
+            else:
+                parts[0] = str(class_id)
             lines.append(" ".join(parts))
-        label_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        label_path.write_text(
+            "\n".join(lines) + "\n" if lines else "", encoding="utf-8"
+        )
         return
 
     raise ValueError(f"bbox_strategy desconocida: {strategy}")
@@ -208,12 +246,9 @@ def copy_image_and_label(
     class_id: int,
     strategy: str,
     sequence: int,
+    class_remap: dict[int, int] | None = None,
 ) -> None:
-    """Copia imagen + crea label en la estructura final.
-
-    Renombra los archivos a `{class_id:02d}_{sequence:06d}.{ext}` para evitar
-    colisiones entre datasets que casualmente compartan nombres.
-    """
+    """Copia imagen + crea label en la estructura final."""
     suffix = src_image.suffix.lower()
     new_stem = f"{class_id:02d}_{sequence:06d}"
 
@@ -222,33 +257,37 @@ def copy_image_and_label(
 
     image_dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src_image, image_dest)
-    write_label(label_dest, class_id, strategy, src_image)
+    write_label(label_dest, class_id, strategy, src_image, class_remap)
 
 
 def prepare(config: Config, dry_run: bool = False) -> int:
-    """Ejecuta el pipeline completo. Retorna el exit code (0 = éxito,
-    2 = warnings críticos como clases por debajo del mínimo).
-    """
+    """Ejecuta el pipeline completo. Retorna exit code (0 = ok, 2 = warnings)."""
     rng = random.Random(config.seed)
 
-    # ─── Paso 1: agrupar imágenes por class_id (un Source puede aportar a
-    # la misma clase desde múltiples carpetas)
-    per_class: dict[int, list[tuple[Path, str]]] = defaultdict(list)
+    # ─── Paso 1: agrupar imágenes por naming_class_id
+    per_class: dict[int, list[tuple[Path, str, dict | None]]] = defaultdict(list)
     for source in config.sources:
         images = collect_images(source)
         try:
             displayed = source.path.relative_to(PROJECT_ROOT)
         except ValueError:
             displayed = source.path
+        strategy_info = source.bbox_strategy
+        if source.class_remap:
+            strategy_info += "+remap"
+        if source.glob_pattern:
+            strategy_info += f"[{source.glob_pattern}]"
         logger.info(
             "  - class_id=%2d (%s)  <-  %s  [%d imgs, %s]",
-            source.class_id,
-            CANONICAL_CLASSES[source.class_id],
+            source.naming_class_id,
+            CANONICAL_CLASSES[source.naming_class_id],
             displayed,
             len(images),
-            source.bbox_strategy,
+            strategy_info,
         )
-        per_class[source.class_id].extend((img, source.bbox_strategy) for img in images)
+        per_class[source.naming_class_id].extend(
+            (img, source.bbox_strategy, source.class_remap) for img in images
+        )
 
     # ─── Paso 2: validar threshold y clases faltantes
     warnings: list[str] = []
@@ -256,16 +295,18 @@ def prepare(config: Config, dry_run: bool = False) -> int:
         count = len(per_class.get(class_id, []))
         if count == 0:
             warnings.append(
-                f"❌ clase {class_id} ({CANONICAL_CLASSES[class_id]}): SIN imágenes"
+                f"[SIN DATOS]  clase {class_id:>2} "
+                f"({CANONICAL_CLASSES[class_id]})"
             )
         elif count < config.min_per_class:
             warnings.append(
-                f"⚠️  clase {class_id} ({CANONICAL_CLASSES[class_id]}): "
+                f"[BAJO MIN]   clase {class_id:>2} "
+                f"({CANONICAL_CLASSES[class_id]}): "
                 f"{count} imgs < min {config.min_per_class}"
             )
 
     if dry_run:
-        logger.info("--- DRY RUN: no se copiará nada ---")
+        logger.info("--- DRY RUN: no se copiara nada ---")
         print_report(per_class, warnings, config, splits_done=False)
         return 2 if warnings else 0
 
@@ -285,11 +326,11 @@ def prepare(config: Config, dry_run: bool = False) -> int:
     }
     seq = 0
     for class_id, entries in sorted(per_class.items()):
-        # Mantenemos la estrategia por imagen (un mismo class_id puede mezclar
-        # carpetas full_frame y passthrough — aunque no es común, lo soportamos)
         train, valid, test = stratified_split(entries, config.split, rng)
-        for split_name, bucket in (("train", train), ("valid", valid), ("test", test)):
-            for img_path, strategy in bucket:
+        for split_name, bucket in (
+            ("train", train), ("valid", valid), ("test", test)
+        ):
+            for img_path, strategy, class_remap in bucket:
                 copy_image_and_label(
                     src_image=img_path,
                     target_root=config.output_dir,
@@ -297,13 +338,13 @@ def prepare(config: Config, dry_run: bool = False) -> int:
                     class_id=class_id,
                     strategy=strategy,
                     sequence=seq,
+                    class_remap=class_remap,
                 )
                 seq += 1
                 split_counts[split_name][class_id] += 1
 
     # ─── Paso 5: reporte final
     print_report(per_class, warnings, config, splits_done=True, split_counts=split_counts)
-
     return 2 if warnings else 0
 
 
@@ -316,23 +357,27 @@ def print_report(
     splits_done: bool,
     split_counts: dict[str, dict[int, int]] | None = None,
 ) -> None:
+    w = 70
     print()
-    print("═" * 70)
-    print(" REPORTE DE PREPARACIÓN — MaduraApp dataset")
-    print("═" * 70)
+    print("=" * w)
+    print(" REPORTE DE PREPARACION -- MaduraApp dataset")
+    print("=" * w)
     print(f" Output      : {config.output_dir}")
     print(f" Min/clase   : {config.min_per_class}")
-    print(f" Split       : train={config.split[0]:.0%}  valid={config.split[1]:.0%}  test={config.split[2]:.0%}")
+    print(
+        f" Split       : train={config.split[0]:.0%}  "
+        f"valid={config.split[1]:.0%}  test={config.split[2]:.0%}"
+    )
     print(f" Seed        : {config.seed}")
     print()
     print(" Conteo por clase:")
-    print(f" {'id':>3}  {'clase':<30}  {'total':>6}  {'train':>6}  {'valid':>6}  {'test':>6}")
-    print(" " + "─" * 67)
+    print(f" {'id':>3}  {'clase':<32}  {'total':>6}  {'train':>6}  {'valid':>6}  {'test':>6}")
+    print(" " + "-" * (w - 1))
     total = 0
     for class_id in range(12):
         count = len(per_class.get(class_id, []))
         total += count
-        row = f" {class_id:>3}  {CANONICAL_CLASSES[class_id]:<30}  {count:>6}"
+        row = f" {class_id:>3}  {CANONICAL_CLASSES[class_id]:<32}  {count:>6}"
         if splits_done and split_counts is not None:
             row += (
                 f"  {split_counts['train'][class_id]:>6}"
@@ -340,29 +385,27 @@ def print_report(
                 f"  {split_counts['test'][class_id]:>6}"
             )
         print(row)
-    print(" " + "─" * 67)
-    print(f" {'':>3}  {'TOTAL':<30}  {total:>6}")
+    print(" " + "-" * (w - 1))
+    print(f" {'':>3}  {'TOTAL':<32}  {total:>6}")
     print()
 
     if warnings:
-        print(" Warnings:")
-        for w in warnings:
-            print(f"   {w}")
+        print(" Advertencias:")
+        for w_msg in warnings:
+            print(f"   {w_msg}")
         print()
 
     if splits_done:
-        print(" ✅ Dataset listo en:", config.output_dir)
-        print(" Siguiente paso:  python scripts/train_model.py")
+        print(f" Dataset listo en: {config.output_dir}")
+        print(" Siguiente paso: python scripts/train_model.py")
     else:
-        print(" 🔍 Dry-run completado. Re-ejecuta sin --dry-run para generar.")
-    print("═" * 70)
+        print(" Dry-run completado. Re-ejecuta sin --dry-run para generar.")
+    print("=" * 70)
 
 
 # ──────────────────────────────────────────────────────────────────── CLI
 
 def main(argv: Iterable[str] | None = None) -> int:
-    # Windows: la consola por defecto es cp1252; forzar UTF-8 para que los
-    # emojis y cajas Unicode del reporte no rompan el print.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
@@ -393,16 +436,16 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     if not args.config.exists():
         sys.stderr.write(
-            f"❌ No existe {args.config}.\n"
-            f"   Copia scripts/prepare_config.example.yaml → {args.config.name} "
-            f"y ajusta los paths.\n"
+            f"No existe {args.config}.\n"
+            f"Crea scripts/prepare_config.yaml basandote en "
+            f"scripts/prepare_config.example.yaml\n"
         )
         return 1
 
     try:
         config = Config.from_yaml(args.config)
     except (KeyError, ValueError) as exc:
-        sys.stderr.write(f"❌ Config inválida: {exc}\n")
+        sys.stderr.write(f"Config invalida: {exc}\n")
         return 1
 
     return prepare(config, dry_run=args.dry_run)
