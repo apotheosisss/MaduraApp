@@ -1,9 +1,11 @@
 # prepare_config.yaml — configuración real con datasets descargados
-# Generado para el entorno local de MaduraApp
 #
-# NOTA: Aguacate Hass (class_id 0-2) no tiene fuente disponible en Kaggle.
-# El modelo se entrenará con 3 frutas (banana, tomate, mango) en el MVP v1.
-# Para v2: recolectar imágenes de aguacate manualmente o desde Roboflow Universe.
+# AGUACATE: descarga manual desde Mendeley (14.710 imgs, Hass, 5 etapas)
+#   1. Ir a https://data.mendeley.com/datasets/3xd9n945v8/1
+#   2. Click "Download All" (gratis) → extraer en datasets/raw/avocado-mendeley/
+#   3. python scripts/organize_avocado.py
+#      → genera datasets/raw/avocado/{INMADURO,OPTIMO,SOBRE_MADURO}/
+#   4. Luego correr: python scripts/prepare_dataset.py
 
 output_dir: ../datasets/maduraapp
 seed: 42
@@ -15,6 +17,18 @@ min_per_class: 200
 bbox_strategy: full_frame
 
 sources:
+  # ══════════════════════════════════════════════════════════════════
+  # AGUACATE HASS (class_id 0=INMADURO, 1=OPTIMO, 2=SOBRE_MADURO)
+  # Fuente: Mendeley 'Hass' Avocado Ripening Dataset (14.710 imgs)
+  # Organizar primero con: python scripts/organize_avocado.py
+  # ══════════════════════════════════════════════════════════════════
+  - path: ../datasets/raw/avocado/INMADURO
+    class_id: 0
+  - path: ../datasets/raw/avocado/OPTIMO
+    class_id: 1
+  - path: ../datasets/raw/avocado/SOBRE_MADURO
+    class_id: 2
+
   # ══════════════════════════════════════════════════════════════════
   # PLÁTANO (class_id 3=INMADURO, 4=OPTIMO, 5=SOBRE_MADURO)
   # Dataset: shahriar26s/banana-ripeness-classification-dataset
