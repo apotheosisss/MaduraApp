@@ -167,17 +167,30 @@ git push origin feature/nombre-feature
 ### ✅ Pipeline de entrenamiento (scripts/) — listo para ejecutar
 - `scripts/data.yaml` — 12 clases en orden contractual con backend
 - `scripts/config.yaml` — hiperparámetros (80 épocas, AdamW, augmentation agresivo)
-- `scripts/download_dataset.py` — pull desde Roboflow vía .env
+- `scripts/prepare_dataset.py` — normaliza datasets crudos (Kaggle/Mendeley) → formato YOLO
+- `scripts/organize_avocado.py` — organiza dataset Mendeley Hass Avocado por etapa de madurez
+- `scripts/prepare_config.yaml` — mapeo real de 31.940 imágenes (12 clases, 4 frutas)
 - `scripts/train_model.py` — pipeline CRISP-DM con audit + snapshot de hparams
 - `scripts/evaluate_model.py` — mAP@50/95, P/R por clase, KPI check (≥0.75)
 - `scripts/export_model.py` — copia best.pt → `backend/weights/` con backup
-- `notebooks/train_yolo26n_colab.ipynb` — versión Colab/Kaggle (GPU gratis)
+- `notebooks/train_yolo26n_colab.ipynb` — notebook Kaggle/Colab (GPU gratuito)
 - `scripts/README.md` — guía completa de las 6 fases CRISP-DM
 
-### 🔲 Pendiente (manual)
-- Recolectar y etiquetar dataset en Roboflow (≥200 imágenes/clase)
-- Correr el pipeline: `download_dataset.py → train_model.py → evaluate_model.py → export_model.py`
-- Validar mAP@50 ≥ 0.75; iterar hiperparámetros si no se cumple
+### ✅ Dataset preparado
+- **31.940 imágenes** distribuidas en train/valid/test (70/15/15)
+- Fuentes: Kaggle (banana, tomate Laboro, mango) + Mendeley (aguacate Hass — 14.710 imgs)
+- 12 clases cubiertas: aguacate Hass, plátano, tomate USDA, mango × {INMADURO, OPTIMO, SOBRE_MADURO}
+- Bboxes reales para tomate (Laboro Tomato, formato detección YOLO)
+- Bboxes full-frame para el resto (datasets de clasificación)
+
+### 🔄 En progreso
+- Entrenamiento YOLO26n — 80 épocas en Kaggle (GPU P100/T4)
+
+### 🔲 Pendiente
+- Validar mAP@50 ≥ 0.75 al finalizar el entrenamiento
+- `python scripts/export_model.py` → copiar best.pt a `backend/weights/`
+- Deploy del backend en Render o AWS App Runner
+- Pruebas E2E con la app Android contra el backend desplegado
 
 ---
 

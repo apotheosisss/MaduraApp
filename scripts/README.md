@@ -38,14 +38,7 @@ source .venv-train/bin/activate          # Linux/Mac
 .venv-train\Scripts\activate              # Windows
 
 pip install -r scripts/requirements.txt
-```
-
-Crea `.env` en la raíz:
-```
-ROBOFLOW_API_KEY=tu_api_key_aquí
-ROBOFLOW_WORKSPACE=maduraapp-duoc
-ROBOFLOW_PROJECT=maduraapp-ripeness
-ROBOFLOW_VERSION=1
+pip install kaggle openpyxl              # herramientas de recolección de datos
 ```
 
 ---
@@ -57,8 +50,8 @@ ROBOFLOW_VERSION=1
 │ 1. Comprensión      │ →   │ 2. Comprensión      │ →   │ 3. Preparación      │
 │    del negocio      │     │    de los datos     │     │    de los datos     │
 │                     │     │                     │     │                     │
-│ data.yaml           │     │ download_dataset.py │     │ Augmentation        │
-│ (12 clases)         │     │ + audit en train.py │     │ (en config.yaml)    │
+│ data.yaml           │     │ prepare_dataset.py  │     │ Augmentation        │
+│ (12 clases)         │     │ + organize_avocado  │     │ (en config.yaml)    │
 └─────────────────────┘     └─────────────────────┘     └─────────────────────┘
                                                                    │
                                                                    ▼
@@ -72,38 +65,45 @@ ROBOFLOW_VERSION=1
 
 ### Fase 2-3 — Datos
 
-Tienes dos rutas según de dónde venga el dataset:
+El dataset final cuenta con **31.940 imágenes** de 12 clases (4 frutas × 3 estados),
+recopiladas desde fuentes públicas y procesadas con los scripts de esta carpeta.
 
-#### Opción A — Dataset ya curado en Roboflow
+#### Fuentes utilizadas
+
+| Fruta | Fuente | Imágenes | Tipo |
+|---|---|---|---|
+| Aguacate Hass | Mendeley `3xd9n945v8` | 14.710 | Clasificación (5 etapas → 3) |
+| Plátano | Kaggle `shahriar26s/banana-ripeness-classification-dataset` | 13.478 | Clasificación |
+| Tomate USDA | Kaggle `nexuswho/laboro-tomato` + `asadullahprl/fruits-ripeness-classification-dataset` | 1.497 | Detección (bboxes reales) + Clasificación |
+| Mango | Kaggle `srabon00/mango-ripening-stage-classification` + `asadullahprl/fruits-ripeness-classification-dataset` | 2.255 | Clasificación |
+
+#### Reproducir el dataset desde cero
 
 ```bash
-python scripts/download_dataset.py
-# Descarga el dataset desde Roboflow → datasets/maduraapp/
-# Verifica que existan train/, valid/, test/ con images/ + labels/
-```
+# 1. Configurar Kaggle API (token en ~/.kaggle/kaggle.json)
+pip install kaggle openpyxl
 
-#### Opción B — Datasets crudos de Kaggle (recomendado para MVP)
-
-```bash
-# 1. Descarga los datasets recomendados (ver prepare_config.example.yaml)
+# 2. Descargar datasets de Kaggle
 mkdir -p datasets/raw && cd datasets/raw
 kaggle datasets download -d shahriar26s/banana-ripeness-classification-dataset --unzip
-kaggle datasets download -d amldvvs/avocado-ripeness-classification-dataset   --unzip
 kaggle datasets download -d nexuswho/laboro-tomato                            --unzip
 kaggle datasets download -d srabon00/mango-ripening-stage-classification      --unzip
+kaggle datasets download -d asadullahprl/fruits-ripeness-classification-dataset --unzip
 cd ../..
 
-# 2. Copia la plantilla de config y ajusta paths/clases al árbol real de
-#    los descomprimidos (los nombres de carpetas varían entre datasets)
-cp scripts/prepare_config.example.yaml scripts/prepare_config.yaml
-# (editar scripts/prepare_config.yaml con un editor)
+# 3. Descargar aguacate Hass desde Mendeley (descarga manual en browser)
+#    URL: https://data.mendeley.com/datasets/3xd9n945v8/1
+#    Extraer en: datasets/raw/avocado-mendeley/
+python scripts/organize_avocado.py
+# → organiza en datasets/raw/avocado/{INMADURO,OPTIMO,SOBRE_MADURO}/
 
-# 3. Inspección — cuenta imágenes por clase, no copia nada
-python scripts/prepare_dataset.py --dry-run
-
-# 4. Ejecutar — normaliza, genera bboxes y split → datasets/maduraapp/
-python scripts/prepare_dataset.py
+# 4. Preparar dataset final (normaliza, split 70/15/15, genera bboxes)
+python scripts/prepare_dataset.py --dry-run   # inspeccionar primero
+python scripts/prepare_dataset.py             # ejecutar
 ```
+
+El `prepare_config.yaml` ya está configurado con los paths reales.
+Ver `prepare_config.example.yaml` como referencia si necesitas ajustar.
 
 `prepare_dataset.py` se encarga de:
 
@@ -166,16 +166,24 @@ El script hace backup del modelo anterior como `.pt.bak`.
 
 ---
 
-## Entrenamiento en Google Colab
+## Entrenamiento en Kaggle (recomendado) o Google Colab
 
 Si no tienes GPU local, usa el notebook
 [`notebooks/train_yolo26n_colab.ipynb`](../notebooks/train_yolo26n_colab.ipynb).
+El notebook está adaptado para **Kaggle Notebooks** (GPU P100/T4 gratuito, 30h/semana).
 
-1. Abrir el notebook en Colab (`File → Open from GitHub`)
-2. `Runtime → Change runtime type → GPU (T4)`
-3. Ejecutar celdas en orden — al final descarga `best.pt` automáticamente.
-4. En tu PC: copiar el `.pt` a `runs/maduraapp_v1/weights/best.pt` y correr
-   `python scripts/export_model.py`
+**Pasos en Kaggle:**
+1. Importar el notebook desde GitHub
+2. Panel derecho → **Accelerator → GPU T4 x2**
+3. Panel derecho → **Add Data** → subir `datasets/maduraapp_dataset.zip`
+4. Ejecutar celdas en orden (duración ~2 horas)
+5. Al finalizar: descargar `best.pt` desde el panel **Output**
+6. En tu PC: `python scripts/export_model.py`
+
+**Alternativa en Google Colab:**
+1. `Runtime → Change runtime type → GPU T4`
+2. Subir `maduraapp_dataset.zip` a Google Drive
+3. Ejecutar celdas — la Celda 3 monta Drive automáticamente
 
 ---
 
