@@ -1,0 +1,151 @@
+# prepare_config.yaml — configuración real con datasets descargados
+#
+# AGUACATE: descarga manual desde Mendeley (14.710 imgs, Hass, 5 etapas)
+#   1. Ir a https://data.mendeley.com/datasets/3xd9n945v8/1
+#   2. Click "Download All" (gratis) → extraer en datasets/raw/avocado-mendeley/
+#   3. python scripts/organize_avocado.py
+#      → genera datasets/raw/avocado/{INMADURO,OPTIMO,SOBRE_MADURO}/
+#   4. Luego correr: python scripts/prepare_dataset.py
+
+output_dir: ../datasets/maduraapp
+seed: 42
+split:
+  train: 0.70
+  valid: 0.15
+  test: 0.15
+min_per_class: 200
+bbox_strategy: full_frame
+
+sources:
+  # ══════════════════════════════════════════════════════════════════
+  # AGUACATE HASS (class_id 0=INMADURO, 1=OPTIMO, 2=SOBRE_MADURO)
+  # Fuente: Mendeley 'Hass' Avocado Ripening Dataset (14.710 imgs)
+  # Organizar primero con: python scripts/organize_avocado.py
+  # ══════════════════════════════════════════════════════════════════
+  - path: ../datasets/raw/avocado/INMADURO
+    class_id: 0
+  - path: ../datasets/raw/avocado/OPTIMO
+    class_id: 1
+  - path: ../datasets/raw/avocado/SOBRE_MADURO
+    class_id: 2
+
+  # ══════════════════════════════════════════════════════════════════
+  # PLÁTANO (class_id 3=INMADURO, 4=OPTIMO, 5=SOBRE_MADURO)
+  # Dataset: shahriar26s/banana-ripeness-classification-dataset
+  # Usamos train + valid + test juntos (prepare_dataset.py hace su propio split)
+  # ══════════════════════════════════════════════════════════════════
+
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/train/unripe
+    class_id: 3
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/valid/unripe
+    class_id: 3
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/test/unripe
+    class_id: 3
+
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/train/ripe
+    class_id: 4
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/valid/ripe
+    class_id: 4
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/test/ripe
+    class_id: 4
+
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/train/overripe
+    class_id: 5
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/valid/overripe
+    class_id: 5
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/test/overripe
+    class_id: 5
+  # Rotten también → SOBRE_MADURO (criterio del producto: no apta para venta)
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/train/rotten
+    class_id: 5
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/valid/rotten
+    class_id: 5
+  - path: ../datasets/raw/Banana Ripeness Classification Dataset/test/rotten
+    class_id: 5
+
+  # ══════════════════════════════════════════════════════════════════
+  # TOMATE USDA (class_id 6=INMADURO, 7=OPTIMO, 8=SOBRE_MADURO)
+  # Dataset principal: nexuswho/laboro-tomato
+  #   YA trae bboxes YOLO (passthrough).
+  #   6 clases originales → 3 canónicas via class_remap:
+  #     0=b_fully_ripened → 8   1=b_half_ripened → 7   2=b_green → 6
+  #     3=l_fully_ripened → 8   4=l_half_ripened → 7   5=l_green → 6
+  # Dataset suplemento: asadullahprl (full_frame, solo tomates)
+  # ══════════════════════════════════════════════════════════════════
+
+  - path: ../datasets/raw/train/images
+    class_id: -1
+    bbox_strategy: passthrough
+    class_remap:
+      0: 8
+      1: 7
+      2: 6
+      3: 8
+      4: 7
+      5: 6
+
+  - path: ../datasets/raw/val/images
+    class_id: -1
+    bbox_strategy: passthrough
+    class_remap:
+      0: 8
+      1: 7
+      2: 6
+      3: 8
+      4: 7
+      5: 6
+
+  # Suplemento full_frame (clasificación)
+  - path: ../datasets/raw/fruits-ripeness/Train/Unripe
+    class_id: 6
+    glob_pattern: "tomato_*"
+  - path: ../datasets/raw/fruits-ripeness/Train/Ripe
+    class_id: 7
+    glob_pattern: "tomato_*"
+  - path: ../datasets/raw/fruits-ripeness/Train/Overipe
+    class_id: 8
+    glob_pattern: "tomato_*"
+  - path: ../datasets/raw/fruits-ripeness/Test/Unripe
+    class_id: 6
+    glob_pattern: "tomato_*"
+  - path: ../datasets/raw/fruits-ripeness/Test/Ripe
+    class_id: 7
+    glob_pattern: "tomato_*"
+  - path: ../datasets/raw/fruits-ripeness/Test/Overripe
+    class_id: 8
+    glob_pattern: "tomato_*"
+
+  # ══════════════════════════════════════════════════════════════════
+  # MANGO (class_id 9=INMADURO, 10=OPTIMO, 11=SOBRE_MADURO)
+  # Dataset 1: srabon00/mango-ripening-stage-classification
+  #   (extraído en raíz de datasets/raw/, mezclado con Laboro por accidente)
+  # Dataset 2: asadullahprl/fruits-ripeness (glob_pattern para filtrar)
+  # ══════════════════════════════════════════════════════════════════
+
+  # srabon00 — carpetas directamente en raw/
+  - path: ../datasets/raw/UnRipe
+    class_id: 9
+  - path: ../datasets/raw/Ripe
+    class_id: 10
+  - path: ../datasets/raw/OverRipe
+    class_id: 11
+
+  # asadullahprl — suplemento para equilibrar
+  - path: ../datasets/raw/fruits-ripeness/Train/Unripe
+    class_id: 9
+    glob_pattern: "mango_*"
+  - path: ../datasets/raw/fruits-ripeness/Train/Ripe
+    class_id: 10
+    glob_pattern: "mango_*"
+  - path: ../datasets/raw/fruits-ripeness/Train/Overipe
+    class_id: 11
+    glob_pattern: "mango_*"
+  - path: ../datasets/raw/fruits-ripeness/Test/Unripe
+    class_id: 9
+    glob_pattern: "mango_*"
+  - path: ../datasets/raw/fruits-ripeness/Test/Ripe
+    class_id: 10
+    glob_pattern: "mango_*"
+  - path: ../datasets/raw/fruits-ripeness/Test/Overripe
+    class_id: 11
+    glob_pattern: "mango_*"

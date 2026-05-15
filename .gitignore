@@ -15,6 +15,16 @@ backend/weights/*.pt
 backend/weights/*.onnx
 *.pt
 *.onnx
+# Excepcion: modelo de produccion (5.2 MB, necesario para deploy en Render)
+!backend/weights/yolo26n_maduraapp.pt
+
+# Datasets de entrenamiento (descargados, no versionar)
+datasets/
+runs/
+.venv-train/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
 
 # Env files (nunca subir credenciales)
 .env

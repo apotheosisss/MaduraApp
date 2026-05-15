@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MaduraApp</string>
+
+    <!-- UI principal -->
+    <string name="title_main">Análisis de madurez</string>
+    <string name="title_history">Historial</string>
+    <string name="lbl_history_empty">Aún no hay escaneos registrados.\n\nEscanea una fruta para comenzar tu historial.</string>
+    <string name="btn_scan">Escanear fruta</string>
+    <string name="btn_retry">Volver a escanear</string>
+    <string name="lbl_loading">Analizando…</string>
+    <string name="lbl_no_detection">No se detectó ninguna fruta soportada</string>
+    <string name="lbl_camera_permission_required">Se requiere permiso de cámara para escanear</string>
+    <string name="lbl_grant_permission">Otorgar permiso</string>
+
+    <!-- Etiquetas dinámicas -->
+    <string name="fmt_fruit_label">%1$s · %2$s</string>
+    <string name="fmt_confidence">Confianza: %1$.1f%%</string>
+
+    <!-- Frutas -->
+    <string name="fruit_aguacate_hass">Aguacate Hass</string>
+    <string name="fruit_platano">Plátano</string>
+    <string name="fruit_tomate_usda">Tomate</string>
+    <string name="fruit_mango">Mango</string>
+
+    <!-- Estados de madurez -->
+    <string name="maturity_inmaduro">Inmaduro</string>
+    <string name="maturity_optimo">Óptimo</string>
+    <string name="maturity_sobre_maduro">Sobre maduro</string>
+
+    <!-- Errores -->
+    <string name="err_network">Error de conexión. Verifica tu internet.</string>
+    <string name="err_server">El servidor no respondió correctamente</string>
+    <string name="err_unknown">Ocurrió un error inesperado</string>
+</resources>

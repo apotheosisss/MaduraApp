@@ -1,0 +1,121 @@
+# ───────────────────────────────────────────────────────────────────────────
+# Plantilla de configuración para scripts/prepare_dataset.py
+#
+# Para usar:
+#   1. cp scripts/prepare_config.example.yaml scripts/prepare_config.yaml
+#   2. Descarga los datasets de Kaggle (ver sección "Datasets recomendados" abajo)
+#   3. Ajusta las rutas `path:` para que apunten a tus carpetas descomprimidas
+#   4. Verifica la correspondencia carpeta_origen → class_id según las clases
+#      reales del dataset que bajaste (los nombres varían)
+#   5. python scripts/prepare_dataset.py --dry-run       (inspecciona)
+#   6. python scripts/prepare_dataset.py                 (ejecuta)
+#
+# ⚠️ El class_id es CONTRACTUAL con el backend. Ver scripts/README.md.
+# ───────────────────────────────────────────────────────────────────────────
+
+# Destino — donde quedará el dataset final en formato YOLO Ultralytics.
+# Path relativo a este archivo de config.
+output_dir: ../datasets/maduraapp
+
+# Reproducibilidad del split aleatorio
+seed: 42
+
+# Proporción del split — debe sumar 1.0
+split:
+  train: 0.70
+  valid: 0.15
+  test: 0.15
+
+# Threshold de imágenes mínimas por clase. Si alguna clase queda debajo,
+# el script emite warning pero NO falla (puedes iterar agregando datasets).
+min_per_class: 200
+
+# Estrategia por defecto para generar bboxes. Puede sobreescribirse por source.
+#
+#   full_frame  → asume que la fruta ocupa toda la imagen (datasets de
+#                 clasificación tipo "una fruta sobre fondo"). Pierde precisión
+#                 en bbox pero la clasificación de madurez funciona igual.
+#
+#   passthrough → el dataset YA trae .txt YOLO en la misma carpeta. El script
+#                 los copia y solo reescribe el class_id para que respete el
+#                 orden canónico. Útil para Laboro Tomato y similares.
+bbox_strategy: full_frame
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DATASETS RECOMENDADOS DE KAGGLE  (verificados en kaggle.com)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 🍌 PLÁTANO  (class_id 3, 4, 5)
+#   kaggle datasets download -d shahriar26s/banana-ripeness-classification-dataset --unzip
+#   → 13K imágenes, 4 clases (unripe, ripe, overripe, rotten).
+#     Mapeamos: unripe→INMADURO, ripe→OPTIMO, overripe+rotten→SOBRE_MADURO
+#
+# 🥑 AGUACATE HASS  (class_id 0, 1, 2)
+#   kaggle datasets download -d amldvvs/avocado-ripeness-classification-dataset --unzip
+#   → Específico Hass, 3 etapas (unripe, ripe, overripe).
+#
+# 🍅 TOMATE USDA  (class_id 6, 7, 8)
+#   kaggle datasets download -d nexuswho/laboro-tomato --unzip
+#   → ⭐ ESTE YA ES FORMATO DETECCIÓN (trae bboxes). Usa bbox_strategy=passthrough.
+#     Clases: green, half_ripened, fully_ripened → INMADURO, OPTIMO, SOBRE_MADURO
+#     Tip: si solo lo quieres como clasificación rápida, igual sirve full_frame.
+#
+# 🥭 MANGO  (class_id 9, 10, 11)
+#   kaggle datasets download -d srabon00/mango-ripening-stage-classification --unzip
+#   → 975 imgs, 3 clases (unripe, ripe, overripe). Limitado pero exacto.
+#     Para llegar a 200/clase puedes complementar con:
+#     kaggle datasets download -d saurabhshahane/mango-varieties-classification --unzip
+#
+# Alternativa multi-fruta (backup):
+#   kaggle datasets download -d leftin/fruit-ripeness-unripe-ripe-and-rotten --unzip
+#   → tropical mix. Útil si alguno de los anteriores falla.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+sources:
+  # ────────────────────────────────── AGUACATE HASS (0, 1, 2) ──────────────
+  - path: ../datasets/raw/avocado/unripe
+    class_id: 0           # aguacate_hass_INMADURO
+
+  - path: ../datasets/raw/avocado/ripe
+    class_id: 1           # aguacate_hass_OPTIMO
+
+  - path: ../datasets/raw/avocado/overripe
+    class_id: 2           # aguacate_hass_SOBRE_MADURO
+
+  # ──────────────────────────────────── PLÁTANO (3, 4, 5) ──────────────────
+  - path: ../datasets/raw/banana/unripe
+    class_id: 3           # platano_INMADURO
+
+  - path: ../datasets/raw/banana/ripe
+    class_id: 4           # platano_OPTIMO
+
+  # Combinamos overripe + rotten en SOBRE_MADURO (criterio del producto)
+  - path: ../datasets/raw/banana/overripe
+    class_id: 5           # platano_SOBRE_MADURO
+  - path: ../datasets/raw/banana/rotten
+    class_id: 5
+
+  # ─────────────────────────────── TOMATE USDA (6, 7, 8) ───────────────────
+  # Laboro Tomato ya trae .txt YOLO → passthrough
+  - path: ../datasets/raw/laboro-tomato/green
+    class_id: 6           # tomate_usda_INMADURO
+    bbox_strategy: passthrough
+
+  - path: ../datasets/raw/laboro-tomato/half_ripened
+    class_id: 7           # tomate_usda_OPTIMO
+    bbox_strategy: passthrough
+
+  - path: ../datasets/raw/laboro-tomato/fully_ripened
+    class_id: 8           # tomate_usda_SOBRE_MADURO
+    bbox_strategy: passthrough
+
+  # ─────────────────────────────────── MANGO (9, 10, 11) ───────────────────
+  - path: ../datasets/raw/mango/unripe
+    class_id: 9           # mango_INMADURO
+
+  - path: ../datasets/raw/mango/ripe
+    class_id: 10          # mango_OPTIMO
+
+  - path: ../datasets/raw/mango/overripe
+    class_id: 11          # mango_SOBRE_MADURO
