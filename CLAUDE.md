@@ -183,12 +183,13 @@ git push origin feature/nombre-feature
 - Bboxes reales para tomate (Laboro Tomato, formato detección YOLO)
 - Bboxes full-frame para el resto (datasets de clasificación)
 
-### 🔄 En progreso
-- Entrenamiento YOLO26n — 80 épocas en Kaggle (GPU P100/T4)
+### ✅ Modelo entrenado
+- YOLO26n entrenado 80 épocas en Kaggle (GPU T4 x2)
+- **mAP@50 = 0.9229** — KPI ≥ 0.75 superado por 17 puntos
+- `backend/weights/yolo26n_maduraapp.pt` desplegado (5.2 MB)
+- Backend verificado: `model_loaded: true` en `/v1/health`
 
 ### 🔲 Pendiente
-- Validar mAP@50 ≥ 0.75 al finalizar el entrenamiento
-- `python scripts/export_model.py` → copiar best.pt a `backend/weights/`
 - Deploy del backend en Render o AWS App Runner
 - Pruebas E2E con la app Android contra el backend desplegado
 
