@@ -12,7 +12,8 @@ class YOLO26Wrapper:
 
     def warmup(self):
         import numpy as np
-        dummy = np.zeros((1, 3, 640, 640), dtype=np.uint8)
+        # Formato HWC (alto, ancho, canales) que espera Ultralytics
+        dummy = np.zeros((640, 640, 3), dtype=np.uint8)
         self.model.predict(dummy, verbose=False)
 
     def predict(self, image) -> list:
